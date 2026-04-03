@@ -95,3 +95,13 @@ from geneXref import geneXref
 geneXref.rebuild_database("path/to/hgnc_complete_set.txt",
                           output_path="path/to/geneXref_database.tsv")
 ```
+
+## Examples
+
+The `examples/` directory contains runnable scripts that demonstrate common
+workflows:
+
+- `examples/build_database.py` — Build a geneXref database from an HGNC export
+  and inspect the result.
+- `examples/map_gene_symbols.py` — Map gene symbols to Ensembl and NCBI
+  identifiers, with warning handling and unmapped-row filtering.
