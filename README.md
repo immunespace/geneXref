@@ -65,6 +65,20 @@ in `map()`.  The standard database produced by `rebuild_database` contains:
 | `ensembl_transcript_id` | Ensembl transcript identifier (MANE Select), version suffix stripped |
 | `uniprot_id` | UniProt accession (primary entry) |
 
+### Design notes
+
+**Database format (TSV).**  The database is stored as a plain TSV file rather
+than a binary format such as pickle.  While pickle loads roughly 4x faster, the
+TSV loads in under 250 ms which is negligible for a one-time initialization cost.
+TSV is human-inspectable, portable across pandas versions, and avoids the
+security concerns associated with unpickling untrusted files.
+
+**UniProt ID handling.**  The HGNC source data can contain multiple pipe-delimited
+UniProt accessions per gene.  Only the first (primary) accession is retained.
+In practice only ~0.3% of genes with a UniProt accession carry more than one ID,
+so preserving all of them would add very little recall while introducing
+many-to-many mapping complexity.
+
 ### Rebuilding the database
 
 1. Download the latest HGNC complete set export from the HGNC website and save it to your local machine.
