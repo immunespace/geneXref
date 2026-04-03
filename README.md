@@ -28,14 +28,14 @@ idmap = gx.map(["ENSG00000139618", "ENSG00000166710"],
 `idmap` will be a pandas DataFrame with one row per input identifier and columns
 for the input identifier and each requested output identifier.
 
-A mapping is set to `NaN` and a `UserWarning` is issued when:
+A mapping is set to `pd.NA` and a `UserWarning` is issued when:
 
 - No row in the database matches the input identifier.
 - More than one row matches the input identifier.
 - The output value found is shared by a different row in the database
   (many-to-many relationship).
 
-Passing `remove_unmapped=True` drops all rows that contain any `NaN` in the
+Passing `remove_unmapped=True` drops all rows that contain any `pd.NA` in the
 output columns from the returned DataFrame.
 
 ### Listing available identifier types
@@ -66,7 +66,7 @@ in `map()`.  The standard database produced by `rebuild_database` contains:
 1. Download the latest HGNC complete set export from the HGNC website and save it to your local machine.
 
 ```bash
-wget https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt
+wget https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt
 ```
 
 2. Use the `rebuild_database` static method to create a new geneXref database from the downloaded file.
