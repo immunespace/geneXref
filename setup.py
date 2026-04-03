@@ -5,4 +5,7 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=["pandas"],
+    extras_require={
+        "dev": ["pytest"],
+    },
 )

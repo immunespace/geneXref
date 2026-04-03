@@ -18,29 +18,48 @@ pip install -e .
 ```python
 from geneXref import geneXref
 
-# initialize the geneXref object with the path to the database
-geneXref = geneXref("path/to/geneXref_database.tsv")
+gx = geneXref("path/to/geneXref_database.tsv")
 
-idmap <- geneXref.map(["ENSG00000139618", "ENSG00000166710"],
-                      input_id="ensembl_gene_id",
-                      output_ids=["gene_symbol", "ncbi_gene_id"])
+idmap = gx.map(["ENSG00000139618", "ENSG00000166710"],
+               input_id="ensembl_gene_id",
+               output_ids=["gene_symbol", "ncbi_gene_id"])
 ```
 
-`idmap` will be a pandas DataFrame containing the mapping results, with columns for the input identifier and the requested output identifiers.
+`idmap` will be a pandas DataFrame with one row per input identifier and columns
+for the input identifier and each requested output identifier.
 
-IDs that cannot be mapped will have `NaN` in the corresponding output columns, and a warning will be issued to indicate that no mapping was found.
+A mapping is set to `NaN` and a `UserWarning` is issued when:
 
-IDs that map to multiple entries will also have `NaN` in the output columns, and a warning will be issued to indicate that multiple mappings were found.
+- No row in the database matches the input identifier.
+- More than one row matches the input identifier.
+- The output value found is shared by a different row in the database
+  (many-to-many relationship).
 
-Passing the argument `remove_unmapped=True` will remove rows with ambiguous or unmapped IDs from the output DataFrame.
+Passing `remove_unmapped=True` drops all rows that contain any `NaN` in the
+output columns from the returned DataFrame.
 
 ### Listing available identifier types
 
 ```python
 from geneXref import geneXref
-geneXref = geneXref("path/to/geneXref_database.tsv")
-geneXref.list_id_types()
+
+gx = geneXref("path/to/geneXref_database.tsv")
+gx.list_id_types()
 ```
+
+Returns a list of column names that can be used as `input_id` or `output_ids`
+in `map()`.  The standard database produced by `rebuild_database` contains:
+
+| Column | Description |
+|---|---|
+| `hgnc_id` | HGNC numeric identifier |
+| `gene_symbol` | Approved HGNC gene symbol |
+| `ncbi_gene_id` | NCBI (Entrez) gene identifier |
+| `ensembl_gene_id` | Ensembl gene identifier |
+| `ucsc_id` | UCSC genome browser identifier |
+| `refseq_accession` | RefSeq accession |
+| `ensembl_transcript_id` | Ensembl transcript identifier (MANE Select) |
+| `uniprot_id` | UniProt accession (primary entry) |
 
 ### Rebuilding the database
 
@@ -50,9 +69,11 @@ geneXref.list_id_types()
 wget https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt
 ```
 
-2. Use the `rebuild_database` function to create a new geneXref database from the downloaded HGNC complete set file.
+2. Use the `rebuild_database` static method to create a new geneXref database from the downloaded file.
+
 ```python
 from geneXref import geneXref
+
 geneXref.rebuild_database("path/to/hgnc_complete_set.txt",
                           output_path="path/to/geneXref_database.tsv")
 ```

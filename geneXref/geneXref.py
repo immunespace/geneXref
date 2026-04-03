@@ -28,6 +28,11 @@ class geneXref:
     ) -> pd.DataFrame:
         """Map a list of identifiers to one or more other identifier types.
 
+        A mapping is set to NaN and a warning is issued when:
+        - No row matches the input identifier.
+        - More than one row matches the input identifier.
+        - The output value found is shared by a different row (many-to-many).
+
         Parameters
         ----------
         ids : list[str]
@@ -43,8 +48,7 @@ class geneXref:
         Returns
         -------
         pd.DataFrame
-            DataFrame with columns [input_id] + output_ids.  Rows that could
-            not be mapped unambiguously contain NaN in the output columns.
+            DataFrame with columns [input_id] + output_ids.
         """
         if input_id not in self._db.columns:
             raise ValueError(
@@ -57,6 +61,12 @@ class geneXref:
                 f"The following output identifier types are not recognised: "
                 f"{missing}. Call list_id_types() to see available types."
             )
+
+        # Pre-compute how many times each value appears in each output column
+        # so we can flag output values that are shared across multiple rows.
+        output_value_counts = {
+            col: self._db[col].value_counts() for col in output_ids
+        }
 
         result_rows = []
         for query_id in ids:
@@ -71,8 +81,8 @@ class geneXref:
 
             elif len(hits) > 1:
                 warnings.warn(
-                    f"Multiple mappings found for {input_id}='{query_id}'; "
-                    f"output set to NaN.",
+                    f"Multiple rows found for {input_id}='{query_id}'; "
+                    f"all output values set to NaN.",
                     stacklevel=2,
                 )
                 row = {input_id: query_id, **{col: pd.NA for col in output_ids}}
@@ -80,7 +90,18 @@ class geneXref:
             else:
                 row = {input_id: query_id}
                 for col in output_ids:
-                    row[col] = hits.iloc[0][col]
+                    val = hits.iloc[0][col]
+                    if pd.isna(val):
+                        row[col] = pd.NA
+                    elif output_value_counts[col].get(val, 0) > 1:
+                        warnings.warn(
+                            f"Output value '{val}' in '{col}' is linked to multiple "
+                            f"entries; setting to NaN for {input_id}='{query_id}'.",
+                            stacklevel=2,
+                        )
+                        row[col] = pd.NA
+                    else:
+                        row[col] = val
 
             result_rows.append(row)
 
@@ -95,6 +116,19 @@ class geneXref:
     def rebuild_database(hgnc_path: str, output_path: str) -> None:
         """Build a geneXref database from an HGNC complete-set export.
 
+        Columns retained from the HGNC file and how they are processed:
+
+        - hgnc_id              : numeric portion stripped of the 'HGNC:' prefix
+        - symbol               : renamed to gene_symbol
+        - entrez_id            : renamed to ncbi_gene_id
+        - ensembl_gene_id      : kept as-is
+        - ucsc_id              : kept as-is
+        - refseq_accession     : kept as-is
+        - mane_select          : pipe-delimited; Ensembl transcript ID (first
+                                 field) extracted and saved as ensembl_transcript_id
+        - uniprot_ids          : pipe-delimited; first entry kept and renamed
+                                 to uniprot_id
+
         Parameters
         ----------
         hgnc_path : str
@@ -102,4 +136,44 @@ class geneXref:
         output_path : str
             Destination path for the geneXref database TSV.
         """
-        raise NotImplementedError("rebuild_database is not yet implemented.")
+        KEEP_COLS = [
+            "hgnc_id",
+            "symbol",
+            "entrez_id",
+            "ensembl_gene_id",
+            "ucsc_id",
+            "refseq_accession",
+            "mane_select",
+            "uniprot_ids",
+        ]
+
+        df = pd.read_csv(hgnc_path, sep="\t", dtype=str, usecols=KEEP_COLS)
+
+        # hgnc_id: strip 'HGNC:' prefix, keep numeric portion
+        df["hgnc_id"] = df["hgnc_id"].str.replace(r"^HGNC:", "", regex=True)
+
+        # mane_select: pipe-delimited "ENST…|NM_…"; keep Ensembl transcript ID
+        df["ensembl_transcript_id"] = df["mane_select"].str.split("|").str[0]
+        df = df.drop(columns=["mane_select"])
+
+        # uniprot_ids: keep only the first pipe-delimited entry
+        df["uniprot_ids"] = df["uniprot_ids"].str.split("|").str[0]
+
+        df = df.rename(columns={
+            "symbol": "gene_symbol",
+            "entrez_id": "ncbi_gene_id",
+            "uniprot_ids": "uniprot_id",
+        })
+
+        df = df[[
+            "hgnc_id",
+            "gene_symbol",
+            "ncbi_gene_id",
+            "ensembl_gene_id",
+            "ucsc_id",
+            "refseq_accession",
+            "ensembl_transcript_id",
+            "uniprot_id",
+        ]]
+
+        df.to_csv(output_path, sep="\t", index=False)
