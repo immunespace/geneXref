@@ -1,5 +1,9 @@
+import re
 import warnings
 import pandas as pd
+
+# Matches versioned Ensembl identifiers, e.g. ENSG00000139618.14
+_ENSEMBL_VERSION_RE = re.compile(r"^(ENS[A-Z]*\d+)\.\d+$")
 
 
 class geneXref:
@@ -70,7 +74,13 @@ class geneXref:
 
         result_rows = []
         for query_id in ids:
-            hits = self._db[self._db[input_id] == query_id]
+            # Strip Ensembl version suffix if present (e.g. ENSG00000139618.14
+            # -> ENSG00000139618) so versioned IDs from upstream tools map
+            # cleanly.  The original value is preserved in the output.
+            m = _ENSEMBL_VERSION_RE.match(query_id)
+            lookup_id = m.group(1) if m else query_id
+
+            hits = self._db[self._db[input_id] == lookup_id]
 
             if len(hits) == 0:
                 warnings.warn(
@@ -153,7 +163,11 @@ class geneXref:
         df["hgnc_id"] = df["hgnc_id"].str.replace(r"^HGNC:", "", regex=True)
 
         # mane_select: pipe-delimited "ENST…|NM_…"; keep Ensembl transcript ID
-        df["ensembl_transcript_id"] = df["mane_select"].str.split("|").str[0]
+        # and strip the version suffix so the DB stores bare IDs consistently.
+        df["ensembl_transcript_id"] = (
+            df["mane_select"].str.split("|").str[0]
+            .str.replace(r"\.\d+$", "", regex=True)
+        )
         df = df.drop(columns=["mane_select"])
 
         # uniprot_ids: keep only the first pipe-delimited entry

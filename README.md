@@ -38,6 +38,10 @@ A mapping is set to `pd.NA` and a `UserWarning` is issued when:
 Passing `remove_unmapped=True` drops all rows that contain any `pd.NA` in the
 output columns from the returned DataFrame.
 
+Versioned Ensembl identifiers (e.g. `ENSG00000139618.14`, `ENST00000222792.11`)
+are automatically mapped by stripping the version suffix before lookup.  The
+original versioned value is preserved in the output DataFrame.
+
 ### Listing available identifier types
 
 ```python
@@ -58,7 +62,7 @@ in `map()`.  The standard database produced by `rebuild_database` contains:
 | `ensembl_gene_id` | Ensembl gene identifier |
 | `ucsc_id` | UCSC genome browser identifier |
 | `refseq_accession` | RefSeq accession |
-| `ensembl_transcript_id` | Ensembl transcript identifier (MANE Select) |
+| `ensembl_transcript_id` | Ensembl transcript identifier (MANE Select), version suffix stripped |
 | `uniprot_id` | UniProt accession (primary entry) |
 
 ### Rebuilding the database

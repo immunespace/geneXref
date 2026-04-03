@@ -46,7 +46,7 @@ class TestRebuildDatabase:
         geneXref.rebuild_database(hgnc_path, out)
         df = pd.read_csv(out, sep="\t", dtype=str)
         chn2 = df[df["gene_symbol"] == "CHN2"].iloc[0]
-        assert chn2["ensembl_transcript_id"] == "ENST00000222792.11"
+        assert chn2["ensembl_transcript_id"] == "ENST00000222792"
 
     def test_mane_select_refseq_portion_discarded(self, hgnc_path, tmp_path):
         out = str(tmp_path / "db.tsv")
@@ -221,3 +221,37 @@ class TestMap:
             gx.map(["ENSG00000106069"],
                    input_id="ensembl_gene_id",
                    output_ids=["nonexistent_col"])
+
+    # --- Ensembl version stripping ------------------------------------------
+
+    def test_versioned_ensembl_gene_id_maps(self, db_path):
+        gx = geneXref(db_path)
+        result = gx.map(["ENSG00000106069.7"],
+                        input_id="ensembl_gene_id",
+                        output_ids=["gene_symbol"])
+        assert result.loc[0, "gene_symbol"] == "CHN2"
+
+    def test_versioned_id_preserved_in_output(self, db_path):
+        # The original versioned value should appear in the input_id column
+        gx = geneXref(db_path)
+        result = gx.map(["ENSG00000106069.7"],
+                        input_id="ensembl_gene_id",
+                        output_ids=["gene_symbol"])
+        assert result.loc[0, "ensembl_gene_id"] == "ENSG00000106069.7"
+
+    def test_versioned_ensembl_transcript_id_maps(self, db_path):
+        # DB stores unversioned IDs; versioned query should still resolve.
+        gx = geneXref(db_path)
+        result = gx.map(["ENST00000222792.11"],
+                        input_id="ensembl_transcript_id",
+                        output_ids=["gene_symbol"])
+        assert result.loc[0, "gene_symbol"] == "CHN2"
+
+    def test_non_ensembl_id_unaffected_by_version_stripping(self, db_path):
+        # Gene symbols containing dots should not be altered
+        gx = geneXref(db_path)
+        with pytest.warns(UserWarning, match="No mapping found"):
+            result = gx.map(["FAKEGENE.1"],
+                            input_id="gene_symbol",
+                            output_ids=["ensembl_gene_id"])
+        assert pd.isna(result.loc[0, "ensembl_gene_id"])
