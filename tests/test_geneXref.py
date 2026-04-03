@@ -106,40 +106,39 @@ class TestMap:
         gx = geneXref(db_path)
         result = gx.map(["ENSG00000106069"],
                         input_id="ensembl_gene_id",
-                        output_ids=["gene_symbol", "ncbi_gene_id"])
+                        output_id="gene_symbol")
         assert result.loc[0, "gene_symbol"] == "CHN2"
-        assert result.loc[0, "ncbi_gene_id"] == "1124"
 
     def test_multiple_ids_map_correctly(self, db_path):
         gx = geneXref(db_path)
         result = gx.map(["ENSG00000106069", "ENSG00000187753"],
                         input_id="ensembl_gene_id",
-                        output_ids=["gene_symbol"])
+                        output_id="gene_symbol")
         assert list(result["gene_symbol"]) == ["CHN2", "C9orf153"]
 
     def test_output_dataframe_has_correct_columns(self, db_path):
         gx = geneXref(db_path)
         result = gx.map(["ENSG00000106069"],
                         input_id="ensembl_gene_id",
-                        output_ids=["gene_symbol", "uniprot_id"])
-        assert list(result.columns) == ["ensembl_gene_id", "gene_symbol", "uniprot_id"]
+                        output_id="gene_symbol")
+        assert list(result.columns) == ["ensembl_gene_id", "gene_symbol"]
 
     # --- unmapped IDs -------------------------------------------------------
 
     def test_unmapped_id_produces_nan(self, db_path):
         gx = geneXref(db_path)
-        with pytest.warns(UserWarning, match="No mapping found"):
+        with pytest.warns(UserWarning, match="could not be mapped"):
             result = gx.map(["ENSG_DOES_NOT_EXIST"],
                             input_id="ensembl_gene_id",
-                            output_ids=["gene_symbol"])
+                            output_id="gene_symbol")
         assert pd.isna(result.loc[0, "gene_symbol"])
 
-    def test_unmapped_id_warns(self, db_path):
+    def test_unmapped_id_warns_with_count(self, db_path):
         gx = geneXref(db_path)
-        with pytest.warns(UserWarning, match="No mapping found.*ENSG_DOES_NOT_EXIST"):
+        with pytest.warns(UserWarning, match="1 of 1 identifiers could not be mapped"):
             gx.map(["ENSG_DOES_NOT_EXIST"],
                    input_id="ensembl_gene_id",
-                   output_ids=["gene_symbol"])
+                   output_id="gene_symbol")
 
     # --- duplicate input IDs ------------------------------------------------
 
@@ -154,10 +153,10 @@ class TestMap:
         df.to_csv(dup_path, sep="\t", index=False)
 
         gx = geneXref(dup_path)
-        with pytest.warns(UserWarning, match="Multiple rows found"):
+        with pytest.warns(UserWarning, match="could not be mapped"):
             result = gx.map(["ENSG00000106069"],
                             input_id="ensembl_gene_id",
-                            output_ids=["gene_symbol"])
+                            output_id="gene_symbol")
         assert pd.isna(result.loc[0, "gene_symbol"])
 
     # --- many-to-many (shared output value) ---------------------------------
@@ -165,18 +164,11 @@ class TestMap:
     def test_shared_output_value_produces_nan(self, db_path):
         # uniprot_id "P52757" is shared by CHN2 and DUPGENE in the test db
         gx = geneXref(db_path)
-        with pytest.warns(UserWarning, match="linked to multiple entries"):
+        with pytest.warns(UserWarning, match="could not be mapped"):
             result = gx.map(["ENSG00000106069"],
                             input_id="ensembl_gene_id",
-                            output_ids=["uniprot_id"])
+                            output_id="uniprot_id")
         assert pd.isna(result.loc[0, "uniprot_id"])
-
-    def test_shared_output_value_warns(self, db_path):
-        gx = geneXref(db_path)
-        with pytest.warns(UserWarning, match="P52757"):
-            gx.map(["ENSG00000106069"],
-                   input_id="ensembl_gene_id",
-                   output_ids=["uniprot_id"])
 
     def test_unambiguous_output_is_not_warned(self, db_path):
         gx = geneXref(db_path)
@@ -185,7 +177,7 @@ class TestMap:
             # gene_symbol is unique — should raise no warning
             gx.map(["ENSG00000106069"],
                    input_id="ensembl_gene_id",
-                   output_ids=["gene_symbol"])
+                   output_id="gene_symbol")
 
     # --- remove_unmapped ----------------------------------------------------
 
@@ -194,7 +186,7 @@ class TestMap:
         with pytest.warns(UserWarning):
             result = gx.map(["ENSG00000106069", "ENSG_FAKE"],
                             input_id="ensembl_gene_id",
-                            output_ids=["gene_symbol"],
+                            output_id="gene_symbol",
                             remove_unmapped=True)
         assert len(result) == 1
         assert result.loc[0, "gene_symbol"] == "CHN2"
@@ -204,7 +196,7 @@ class TestMap:
         with pytest.warns(UserWarning):
             result = gx.map(["ENSG00000106069", "ENSG_FAKE"],
                             input_id="ensembl_gene_id",
-                            output_ids=["gene_symbol"],
+                            output_id="gene_symbol",
                             remove_unmapped=False)
         assert len(result) == 2
 
@@ -213,14 +205,14 @@ class TestMap:
     def test_invalid_input_id_raises(self, db_path):
         gx = geneXref(db_path)
         with pytest.raises(ValueError, match="not a recognised identifier type"):
-            gx.map(["X"], input_id="nonexistent_col", output_ids=["gene_symbol"])
+            gx.map(["X"], input_id="nonexistent_col", output_id="gene_symbol")
 
     def test_invalid_output_id_raises(self, db_path):
         gx = geneXref(db_path)
-        with pytest.raises(ValueError, match="not recognised"):
+        with pytest.raises(ValueError, match="not a recognised identifier type"):
             gx.map(["ENSG00000106069"],
                    input_id="ensembl_gene_id",
-                   output_ids=["nonexistent_col"])
+                   output_id="nonexistent_col")
 
     # --- Ensembl version stripping ------------------------------------------
 
@@ -228,7 +220,7 @@ class TestMap:
         gx = geneXref(db_path)
         result = gx.map(["ENSG00000106069.7"],
                         input_id="ensembl_gene_id",
-                        output_ids=["gene_symbol"])
+                        output_id="gene_symbol")
         assert result.loc[0, "gene_symbol"] == "CHN2"
 
     def test_versioned_id_preserved_in_output(self, db_path):
@@ -236,7 +228,7 @@ class TestMap:
         gx = geneXref(db_path)
         result = gx.map(["ENSG00000106069.7"],
                         input_id="ensembl_gene_id",
-                        output_ids=["gene_symbol"])
+                        output_id="gene_symbol")
         assert result.loc[0, "ensembl_gene_id"] == "ENSG00000106069.7"
 
     def test_versioned_ensembl_transcript_id_maps(self, db_path):
@@ -244,14 +236,14 @@ class TestMap:
         gx = geneXref(db_path)
         result = gx.map(["ENST00000222792.11"],
                         input_id="ensembl_transcript_id",
-                        output_ids=["gene_symbol"])
+                        output_id="gene_symbol")
         assert result.loc[0, "gene_symbol"] == "CHN2"
 
     def test_non_ensembl_id_unaffected_by_version_stripping(self, db_path):
         # Gene symbols containing dots should not be altered
         gx = geneXref(db_path)
-        with pytest.warns(UserWarning, match="No mapping found"):
+        with pytest.warns(UserWarning, match="could not be mapped"):
             result = gx.map(["FAKEGENE.1"],
                             input_id="gene_symbol",
-                            output_ids=["ensembl_gene_id"])
+                            output_id="ensembl_gene_id")
         assert pd.isna(result.loc[0, "ensembl_gene_id"])

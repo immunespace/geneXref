@@ -31,21 +31,24 @@ gx = geneXref()
 
 idmap = gx.map(["ENSG00000139618", "ENSG00000166710"],
                input_id="ensembl_gene_id",
-               output_ids=["gene_symbol", "ncbi_gene_id"])
+               output_id="gene_symbol")
 ```
 
-`idmap` will be a pandas DataFrame with one row per input identifier and columns
-for the input identifier and each requested output identifier.
+`idmap` will be a pandas DataFrame with columns for the input identifier and
+the requested output identifier.
 
-A mapping is set to `pd.NA` and a `UserWarning` is issued when:
+An output value is set to `pd.NA` when:
 
 - No row in the database matches the input identifier.
 - More than one row matches the input identifier.
-- The output value found is shared by a different row in the database
+- The output value is shared by a different row in the database
   (many-to-many relationship).
 
-Passing `remove_unmapped=True` drops all rows that contain any `pd.NA` in the
-output columns from the returned DataFrame.
+If any identifiers could not be mapped, a single `UserWarning` is issued
+reporting how many of the input identifiers were unmapped.
+
+Passing `remove_unmapped=True` drops all rows that contain `pd.NA` in the
+output column from the returned DataFrame.
 
 Versioned Ensembl identifiers (e.g. `ENSG00000139618.14`, `ENST00000222792.11`)
 are automatically mapped by stripping the version suffix before lookup.  The
@@ -60,7 +63,7 @@ gx = geneXref()
 gx.list_id_types()
 ```
 
-Returns a list of column names that can be used as `input_id` or `output_ids`
+Returns a list of column names that can be used as `input_id` or `output_id`
 in `map()`.  The standard database produced by `rebuild_database` contains:
 
 | Column | Description |
@@ -112,5 +115,5 @@ workflows:
 
 - `examples/build_database.py` — Build a geneXref database from an HGNC export
   and inspect the result.
-- `examples/map_gene_symbols.py` — Map gene symbols to Ensembl and NCBI
+- `examples/map_gene_symbols.py` — Map gene symbols to Ensembl gene
   identifiers, with warning handling and unmapped-row filtering.

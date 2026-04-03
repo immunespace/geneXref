@@ -1,9 +1,9 @@
 """
-Map a list of gene symbols to Ensembl gene IDs and NCBI gene IDs.
+Map a list of gene symbols to Ensembl gene IDs.
 
 Usage
 -----
-    python examples/map_gene_symbols.py path/to/geneXref_database.tsv
+    python examples/map_gene_symbols.py
 
 The script demonstrates:
 - Basic identifier mapping with geneXref.map()
@@ -17,8 +17,8 @@ import warnings
 from geneXref import geneXref
 
 
-def main(db_path: str) -> None:
-    gx = geneXref(db_path)
+def main() -> None:
+    gx = geneXref()
 
     gene_symbols = [
         "TP53",
@@ -33,7 +33,7 @@ def main(db_path: str) -> None:
         result = gx.map(
             gene_symbols,
             input_id="gene_symbol",
-            output_ids=["ensembl_gene_id", "ncbi_gene_id"],
+            output_id="ensembl_gene_id",
         )
 
     for w in caught:
@@ -48,7 +48,7 @@ def main(db_path: str) -> None:
         result_clean = gx.map(
             gene_symbols,
             input_id="gene_symbol",
-            output_ids=["ensembl_gene_id", "ncbi_gene_id"],
+            output_id="ensembl_gene_id",
             remove_unmapped=True,
         )
 
@@ -56,7 +56,7 @@ def main(db_path: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: python {sys.argv[0]} path/to/geneXref_database.tsv")
+    if len(sys.argv) != 1:
+        print(f"Usage: python {sys.argv[0]}")
         sys.exit(1)
-    main(sys.argv[1])
+    main()

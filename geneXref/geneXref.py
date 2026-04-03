@@ -35,15 +35,10 @@ class geneXref:
         self,
         ids: list[str],
         input_id: str,
-        output_ids: list[str],
+        output_id: str,
         remove_unmapped: bool = False,
     ) -> pd.DataFrame:
-        """Map a list of identifiers to one or more other identifier types.
-
-        A mapping is set to NaN and a warning is issued when:
-        - No row matches the input identifier.
-        - More than one row matches the input identifier.
-        - The output value found is shared by a different row (many-to-many).
+        """Map a list of identifiers to another identifier type.
 
         Parameters
         ----------
@@ -51,82 +46,62 @@ class geneXref:
             Input identifiers to map.
         input_id : str
             Column name of the input identifier type.
-        output_ids : list[str]
-            Column names of the desired output identifier types.
+        output_id : str
+            Column name of the desired output identifier type.
         remove_unmapped : bool, optional
-            If True, drop rows where any output identifier could not be
-            resolved (unmapped or ambiguous).  Defaults to False.
+            If True, drop rows where the output identifier could not be
+            resolved.  Defaults to False.
 
         Returns
         -------
         pd.DataFrame
-            DataFrame with columns [input_id] + output_ids.
+            DataFrame with columns [input_id, output_id].
         """
         if input_id not in self._db.columns:
             raise ValueError(
                 f"'{input_id}' is not a recognised identifier type. "
                 f"Call list_id_types() to see available types."
             )
-        missing = [c for c in output_ids if c not in self._db.columns]
-        if missing:
+        if output_id not in self._db.columns:
             raise ValueError(
-                f"The following output identifier types are not recognised: "
-                f"{missing}. Call list_id_types() to see available types."
+                f"'{output_id}' is not a recognised identifier type. "
+                f"Call list_id_types() to see available types."
             )
 
-        # Pre-compute how many times each value appears in each output column
-        # so we can flag output values that are shared across multiple rows.
-        output_value_counts = {
-            col: self._db[col].value_counts() for col in output_ids
-        }
+        # Strip Ensembl version suffixes from input IDs
+        lookup_ids = pd.Series(ids).str.replace(
+            _ENSEMBL_VERSION_RE, r"\1", regex=True
+        )
 
-        result_rows = []
-        for query_id in ids:
-            # Strip Ensembl version suffix if present (e.g. ENSG00000139618.14
-            # -> ENSG00000139618) so versioned IDs from upstream tools map
-            # cleanly.  The original value is preserved in the output.
-            m = _ENSEMBL_VERSION_RE.match(query_id)
-            lookup_id = m.group(1) if m else query_id
+        # Extract only the two relevant columns; drop missing output values
+        sub = self._db[[input_id, output_id]].dropna(subset=[output_id])
 
-            hits = self._db[self._db[input_id] == lookup_id]
+        # Identify ambiguous output values across the full database
+        dup_outputs = sub[output_id].duplicated(keep=False)
+        sub = sub[~dup_outputs]
 
-            if len(hits) == 0:
-                warnings.warn(
-                    f"No mapping found for {input_id}='{query_id}'.",
-                    stacklevel=2,
-                )
-                row = {input_id: query_id, **{col: pd.NA for col in output_ids}}
+        # Filter to rows matching the input IDs
+        sub = sub[sub[input_id].isin(lookup_ids)]
 
-            elif len(hits) > 1:
-                warnings.warn(
-                    f"Multiple rows found for {input_id}='{query_id}'; "
-                    f"all output values set to NaN.",
-                    stacklevel=2,
-                )
-                row = {input_id: query_id, **{col: pd.NA for col in output_ids}}
+        # Remove duplicate input rows (ambiguous input mappings)
+        dup_inputs = sub[input_id].duplicated(keep=False)
+        sub = sub[~dup_inputs]
 
-            else:
-                row = {input_id: query_id}
-                for col in output_ids:
-                    val = hits.iloc[0][col]
-                    if pd.isna(val):
-                        row[col] = pd.NA
-                    elif output_value_counts[col].get(val, 0) > 1:
-                        warnings.warn(
-                            f"Output value '{val}' in '{col}' is linked to multiple "
-                            f"entries; setting to NaN for {input_id}='{query_id}'.",
-                            stacklevel=2,
-                        )
-                        row[col] = pd.NA
-                    else:
-                        row[col] = val
+        # Build the result: start from the original IDs, merge with matches
+        query = pd.DataFrame({input_id: ids, "_lookup": lookup_ids})
+        result = query.merge(sub, left_on="_lookup", right_on=input_id,
+                             how="left", suffixes=("", "_db"))
+        result = result[[input_id, output_id]]
 
-            result_rows.append(row)
-
-        result = pd.DataFrame(result_rows, columns=[input_id] + output_ids)
+        n_unmapped = result[output_id].isna().sum()
+        if n_unmapped > 0:
+            warnings.warn(
+                f"{n_unmapped} of {len(ids)} identifiers could not be mapped.",
+                stacklevel=2,
+            )
 
         if remove_unmapped:
-            result = result.dropna(subset=output_ids).reset_index(drop=True)
+            result = result.dropna(subset=[output_id]).reset_index(drop=True)
 
         return result
 
