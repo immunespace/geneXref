@@ -2,7 +2,12 @@
 
 This package is intended to provide a simple interface to map gene identifiers
 across different databases.  It relies on the mapping provided by the HGNC
-complete set export, which is updated regularly and can be downloaded from the HGNC website.
+complete set export, which is updated regularly and can be downloaded from the
+HGNC website.
+
+A pre-built database (derived from the 2026-04-03 HGNC export) is bundled with
+the package, so you can start mapping identifiers immediately after
+installation — no manual download required.
 
 ## Installation
 
@@ -13,12 +18,16 @@ pip install -e .
 
 ## Usage
 
-### Mapping gene identifiers with the existing database
+### Mapping gene identifiers
 
 ```python
 from geneXref import geneXref
 
-gx = geneXref("path/to/geneXref_database.tsv")
+# Use the bundled database (default)
+gx = geneXref()
+
+# Or point to a custom database
+# gx = geneXref("path/to/geneXref_database.tsv")
 
 idmap = gx.map(["ENSG00000139618", "ENSG00000166710"],
                input_id="ensembl_gene_id",
@@ -47,7 +56,7 @@ original versioned value is preserved in the output DataFrame.
 ```python
 from geneXref import geneXref
 
-gx = geneXref("path/to/geneXref_database.tsv")
+gx = geneXref()
 gx.list_id_types()
 ```
 

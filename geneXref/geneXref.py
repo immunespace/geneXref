@@ -1,5 +1,7 @@
 import re
 import warnings
+from importlib import resources
+
 import pandas as pd
 
 # Matches versioned Ensembl identifiers, e.g. ENSG00000139618.14
@@ -9,14 +11,20 @@ _ENSEMBL_VERSION_RE = re.compile(r"^(ENS[A-Z]*\d+)\.\d+$")
 class geneXref:
     """Maps gene identifiers across databases using a pre-built TSV database."""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str | None = None):
         """Load a geneXref database from a TSV file.
 
         Parameters
         ----------
-        db_path : str
-            Path to the geneXref database TSV file.
+        db_path : str, optional
+            Path to a geneXref database TSV file.  When *None* (the
+            default), the pre-built database bundled with the package is
+            used.
         """
+        if db_path is None:
+            db_path = str(
+                resources.files("geneXref").joinpath("data", "db-20260403.tsv")
+            )
         self._db = pd.read_csv(db_path, sep="\t", dtype=str)
 
     def list_id_types(self) -> list[str]:
