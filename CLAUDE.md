@@ -32,9 +32,9 @@ fixtures in `conftest.py` — no external data files are needed to run them.
 - The database is a plain TSV loaded into a pandas DataFrame (`dtype=str`).
 - All identifier values are stored as strings, never numeric types.
 - The class name `geneXref` is intentionally lowercase (matches the package name).
-- `map()` takes a single `output_id` (not a list).
-- Ambiguous or missing mappings are set to `pd.NA`; a single summary
-  `UserWarning` reports how many identifiers could not be mapped.
+- `map()` takes a single `output_id` (not a list) and returns a
+  `(mapped, unmapped)` tuple of DataFrames.  The mapped DataFrame contains
+  only successful mappings; unmapped IDs and their reasons are in the second.
 - Versioned Ensembl IDs are stripped before lookup but preserved in output.
 - UniProt: only the first (primary) accession is kept per gene; see README
   "Design notes" for rationale.

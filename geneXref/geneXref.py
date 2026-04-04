@@ -36,8 +36,7 @@ class geneXref:
         ids: list[str],
         input_id: str,
         output_id: str,
-        remove_unmapped: bool = False,
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Map a list of identifiers to another identifier type.
 
         Parameters
@@ -48,14 +47,18 @@ class geneXref:
             Column name of the input identifier type.
         output_id : str
             Column name of the desired output identifier type.
-        remove_unmapped : bool, optional
-            If True, drop rows where the output identifier could not be
-            resolved.  Defaults to False.
 
         Returns
         -------
-        pd.DataFrame
-            DataFrame with columns [input_id, output_id].
+        tuple[pd.DataFrame, pd.DataFrame]
+            A pair of DataFrames:
+
+            1. **mapped** — columns [input_id, output_id], containing only
+               successfully mapped identifiers.
+            2. **unmapped** — columns [input_id, "reason"] listing every
+               input identifier that could not be mapped and why.
+               Possible reasons: ``"not_found"``,
+               ``"duplicate_input"``, ``"duplicate_output"``.
         """
         if input_id not in self._db.columns:
             raise ValueError(
@@ -72,18 +75,30 @@ class geneXref:
         lookup_ids = pd.Series(ids).str.replace(
             _ENSEMBL_VERSION_RE, r"\1", regex=True
         )
+        lookup_set = set(lookup_ids)
 
         # Extract only the two relevant columns; drop missing output values
         sub = self._db[[input_id, output_id]].dropna(subset=[output_id])
 
+        # --- track reasons for unmapped IDs ----------------------------------
+
+        # IDs not present in the input column at all
+        db_input_vals = set(sub[input_id])
+        not_found = lookup_set - db_input_vals
+
+        # IDs that match multiple rows in the input column
+        input_counts = sub[input_id].value_counts()
+        dup_input_vals = set(input_counts[input_counts > 1].index) & lookup_set
+
         # Identify ambiguous output values across the full database
         dup_outputs = sub[output_id].duplicated(keep=False)
+        dup_output_lookup = set(sub.loc[dup_outputs, input_id]) & lookup_set
+
+        # --- build clean mapping ---------------------------------------------
+
         sub = sub[~dup_outputs]
+        sub = sub[sub[input_id].isin(lookup_set)]
 
-        # Filter to rows matching the input IDs
-        sub = sub[sub[input_id].isin(lookup_ids)]
-
-        # Remove duplicate input rows (ambiguous input mappings)
         dup_inputs = sub[input_id].duplicated(keep=False)
         sub = sub[~dup_inputs]
 
@@ -92,18 +107,32 @@ class geneXref:
         result = query.merge(sub, left_on="_lookup", right_on=input_id,
                              how="left", suffixes=("", "_db"))
         result = result[[input_id, output_id]]
+        result = result.dropna(subset=[output_id]).reset_index(drop=True)
 
-        n_unmapped = result[output_id].isna().sum()
-        if n_unmapped > 0:
+        # --- build unmapped report -------------------------------------------
+
+        # Map each lookup ID to its original (possibly versioned) value
+        lookup_to_original = dict(zip(lookup_ids, ids))
+
+        unmapped_rows = []
+        for lid in not_found - dup_input_vals:
+            unmapped_rows.append((lookup_to_original[lid], "not_found"))
+        for lid in dup_input_vals:
+            unmapped_rows.append((lookup_to_original[lid], "duplicate_input"))
+        for lid in dup_output_lookup - not_found - dup_input_vals:
+            unmapped_rows.append((lookup_to_original[lid], "duplicate_output"))
+
+        unmapped = pd.DataFrame(
+            unmapped_rows, columns=[input_id, "reason"]
+        )
+
+        if len(unmapped) > 0:
             warnings.warn(
-                f"{n_unmapped} of {len(ids)} identifiers could not be mapped.",
+                f"{len(unmapped)} of {len(ids)} identifiers could not be mapped.",
                 stacklevel=2,
             )
 
-        if remove_unmapped:
-            result = result.dropna(subset=[output_id]).reset_index(drop=True)
-
-        return result
+        return result, unmapped
 
     @staticmethod
     def rebuild_database(hgnc_path: str, output_path: str) -> None:

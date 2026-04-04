@@ -29,26 +29,24 @@ gx = geneXref()
 # Or point to a custom database
 # gx = geneXref("path/to/geneXref_database.tsv")
 
-idmap = gx.map(["ENSG00000139618", "ENSG00000166710"],
-               input_id="ensembl_gene_id",
-               output_id="gene_symbol")
+mapped, unmapped = gx.map(["ENSG00000139618", "ENSG00000166710"],
+                          input_id="ensembl_gene_id",
+                          output_id="gene_symbol")
 ```
 
-`idmap` will be a pandas DataFrame with columns for the input identifier and
-the requested output identifier.
+`map()` returns a tuple of two DataFrames:
 
-An output value is set to `pd.NA` when:
-
-- No row in the database matches the input identifier.
-- More than one row matches the input identifier.
-- The output value is shared by a different row in the database
-  (many-to-many relationship).
+- **`mapped`** — columns `[input_id, output_id]`, containing only successfully
+  mapped identifiers.
+- **`unmapped`** — columns `[input_id, "reason"]`, listing every input
+  identifier that could not be mapped and why.  Possible reasons:
+  - `not_found` — no row in the database matches the input identifier.
+  - `duplicate_input` — more than one row matches the input identifier.
+  - `duplicate_output` — the output value is shared by multiple rows
+    (many-to-many relationship).
 
 If any identifiers could not be mapped, a single `UserWarning` is issued
 reporting how many of the input identifiers were unmapped.
-
-Passing `remove_unmapped=True` drops all rows that contain `pd.NA` in the
-output column from the returned DataFrame.
 
 Versioned Ensembl identifiers (e.g. `ENSG00000139618.14`, `ENST00000222792.11`)
 are automatically mapped by stripping the version suffix before lookup.  The
@@ -116,4 +114,4 @@ workflows:
 - `examples/build_database.py` — Build a geneXref database from an HGNC export
   and inspect the result.
 - `examples/map_gene_symbols.py` — Map gene symbols to Ensembl gene
-  identifiers, with warning handling and unmapped-row filtering.
+  identifiers, with unmapped-ID summary.

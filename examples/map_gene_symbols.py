@@ -7,8 +7,7 @@ Usage
 
 The script demonstrates:
 - Basic identifier mapping with geneXref.map()
-- Handling of unmapped / ambiguous identifiers via warnings
-- Filtering to confidently mapped rows with remove_unmapped=True
+- Inspecting mapped results and unmapped-ID reasons
 """
 
 import sys
@@ -27,10 +26,10 @@ def main() -> None:
         "THIS_GENE_DOES_NOT_EXIST",
     ]
 
-    print("=== Mapping gene symbols (all results, including unmapped) ===\n")
+    print("=== Mapping gene symbols ===\n")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = gx.map(
+        mapped, unmapped = gx.map(
             gene_symbols,
             input_id="gene_symbol",
             output_id="ensembl_gene_id",
@@ -39,20 +38,12 @@ def main() -> None:
     for w in caught:
         print(f"Warning: {w.message}")
 
-    print()
-    print(result.to_string(index=False))
+    print(f"\nMapped ({len(mapped)}):\n")
+    print(mapped.to_string(index=False))
 
-    print("\n=== Mapped results only (remove_unmapped=True) ===\n")
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        result_clean = gx.map(
-            gene_symbols,
-            input_id="gene_symbol",
-            output_id="ensembl_gene_id",
-            remove_unmapped=True,
-        )
-
-    print(result_clean.to_string(index=False))
+    if len(unmapped) > 0:
+        print(f"\nUnmapped ({len(unmapped)}):\n")
+        print(unmapped["reason"].value_counts().to_string())
 
 
 if __name__ == "__main__":
