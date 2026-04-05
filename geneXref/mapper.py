@@ -36,9 +36,10 @@ _TRANSCRIPT_VIEW = "enst2all"
 
 def _default_db_path() -> Path:
     """Locate the database: check ~/.geneXref/ first, then the package data dir."""
-    user_db = Path.home() / ".geneXref" / "geneXref.db"
-    if user_db.exists():
-        return user_db
+    user_dir = Path.home() / ".geneXref"
+    matches = sorted(user_dir.glob("geneXref*.db")) if user_dir.is_dir() else []
+    if matches:
+        return matches[0]
     bundled = Path(__file__).parent / "data" / "geneXref.db"
     if bundled.exists():
         return bundled
