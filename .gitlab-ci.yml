@@ -1,0 +1,15 @@
+default:
+  image: python:3.12
+
+stages:
+  - test
+
+test:
+  stage: test
+  script:
+    - pip install -e ".[dev]"
+    - pytest tests/ -v
+  parallel:
+    matrix:
+      - IMAGE: ["python:3.11", "python:3.12", "python:3.13"]
+  image: $IMAGE

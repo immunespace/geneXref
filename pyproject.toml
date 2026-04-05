@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geneXref"
+version = "0.2.0"
+description = "Map gene and transcript identifiers across Ensembl, NCBI, HGNC, RefSeq, and UCSC"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+]
+
+[project.optional-dependencies]
+build = ["pymysql"]
+dev = ["pymysql", "pytest"]
+
+[tool.setuptools.packages.find]
+include = ["geneXref*"]
+
+[tool.setuptools.package-data]
+geneXref = ["data/*.db"]
