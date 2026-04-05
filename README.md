@@ -159,3 +159,13 @@ Data is extracted from the Ensembl MySQL `homo_sapiens_core_<version>_38` schema
 | UCSC | 11000 |
 
 See [geneXref/build.py](geneXref/build.py) for the full SQL queries.
+
+## Examples
+
+Runnable scripts are in the [examples/](examples/) directory:
+
+| Script | Description |
+|--------|-------------|
+| [examples/download_database.py](examples/download_database.py) | Download the latest pre-built database from GitHub Releases |
+| [examples/build_database.py](examples/build_database.py) | Build the database from the Ensembl public MySQL server |
+| [examples/ensembl_gene_ids_to_gene_names.py](examples/ensembl_gene_ids_to_gene_names.py) | Convert Ensembl gene IDs to HGNC gene names |

@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "geneXref"
 version = "0.2.0"
 description = "Map gene and transcript identifiers across Ensembl, NCBI, HGNC, RefSeq, and UCSC"
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 dependencies = [
     "pandas",
